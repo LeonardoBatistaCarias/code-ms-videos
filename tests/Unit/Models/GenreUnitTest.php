@@ -5,7 +5,7 @@ namespace Tests\Unit\Models;
 use App\Models\Genre;
 use PHPUnit\Framework\TestCase;
 
-class GenreTest extends TestCase
+class GenreUnitTest extends TestCase
 {
     private $genre;
 
