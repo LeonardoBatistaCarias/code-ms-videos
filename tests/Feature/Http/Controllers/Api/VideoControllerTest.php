@@ -111,6 +111,14 @@ class VideoControllerTest extends TestCase
         ];
         $this->assertInvalidationInStoreAction($data, 'exists');
         $this->assertInvalidationInUpdateAction($data, 'exists');
+
+        $category = factory(Category::class)->create();
+        $category->delete();
+        $data = [
+            'categories_id' => [$category->id]
+        ];
+        $this->assertInvalidationInStoreAction($data, 'exists');
+        $this->assertInvalidationInUpdateAction($data, 'exists');        
     }
 
     public function testInvalidationGenresIdField()
@@ -126,12 +134,21 @@ class VideoControllerTest extends TestCase
         ];
         $this->assertInvalidationInStoreAction($data, 'exists');
         $this->assertInvalidationInUpdateAction($data, 'exists');
+
+        $category = factory(Genre::class)->create();
+        $category->delete();
+        $data = [
+            'genres_id' => [$category->id]
+        ];
+        $this->assertInvalidationInStoreAction($data, 'exists');
+        $this->assertInvalidationInUpdateAction($data, 'exists');
     }
     
     public function testStore()
     {
         $category = factory(Category::class)->create();
         $genre = factory(Genre::class)->create();
+        $genre->categories()->sync($category->id);
         $this->assertStore($this->sendData + [            
             'categories_id' => [$category->id],
             'genres_id' => [$genre->id]
@@ -198,13 +215,53 @@ class VideoControllerTest extends TestCase
         ->andThrow(new TestException());
 
         $request = \Mockery::mock(Request::class);
-
+        $hasError = false;
         try {            
             $controller->store($request);
         } catch(TestException $exception) {
             $this->assertCount(1, Video::all());
+            $hasError = true;
         }
+        $this->assertTrue($hasError);
+    }
+    
+    public function testRollbackUpdate()
+    {
+        $controller = \Mockery::mock(VideoController::class)
+            ->makePartial()
+            ->shouldAllowMockingProtectedMethods();
+
+        $controller
+            ->shouldReceive('findOrFail')
+            ->withAnyArgs()
+            ->andReturn($this->video);
+
+        $controller
+            ->shouldReceive('validate')
+            ->withAnyArgs()
+            ->andReturn([
+                'name' => 'test'
+            ]);
         
+        $controller
+            ->shouldReceive('rulesUpdate')
+            ->withAnyArgs()
+            ->andReturn([]);
+
+        $controller->shouldReceive('handleRelations')
+        ->once()
+        ->andThrow(new TestException());
+
+        $request = \Mockery::mock(Request::class);
+        
+        $hasError = false;
+        try {            
+            $controller->update($request, 1);
+        } catch(TestException $exception) {
+            $this->assertCount(1, Video::all());
+            $hasError = true;
+        }
+        $this->assertTrue($hasError);
     }
 
     public function testDestroy()
