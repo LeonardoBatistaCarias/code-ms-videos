@@ -41,9 +41,16 @@ class CastMemberControllerTest extends TestCase
 
         $response
             ->assertStatus(200)
-            ->assertJson([
-                $this->castMember->toArray()        
-            ]);
+            ->assertJsonStructure(
+                [
+                    'data' => [
+                        '*' => $this->fieldsSerialized
+                    ],
+                    'meta' => [],
+                    'links' => []
+                ]
+            )
+            ->assertJsonFragment($this->castMember->toArray());
     }
 
     public function testInvalidationData()
@@ -77,8 +84,11 @@ class CastMemberControllerTest extends TestCase
         foreach ($data as $key => $value) {
             $response = $this->assertStore($value, $value + ['deleted_at' => null]);
             $response->assertJsonStructure([
-                'created_at', 'updated_at'
-            ]);            
+                'data' => $this->fieldsSerialized
+            ]);
+            $this->assertResource($response, new CastMemberResource(
+                CastMember::find($response->json('data.id'))
+            ));
         }
     }
 
@@ -90,8 +100,11 @@ class CastMemberControllerTest extends TestCase
         ];
         $response = $this->assertUpdate($data, $data + ['deleted_at' => null]);
         $response->assertJsonStructure([
-            'created_at', 'updated_at'
-        ]);        
+            'data' => $this->fieldsSerialized
+        ]);
+        $this->assertResource($response, new CastMemberResource(
+            CastMember::find($response->json('data.id'))
+        ));
     }
 
     public function testShow()
@@ -99,7 +112,12 @@ class CastMemberControllerTest extends TestCase
         $response = $this->json('GET', route('cast_members.show', ['cast_member' => $this->castMember->id]));
         $response
             ->assertStatus(200)
-            ->assertJson($this->castMember->toArray());
+            ->assertJsonStructure([
+                'data' => $this->fieldsSerialized
+            ])
+            ->assertJsonFragment($this->castMember->toArray());
+
+        $this->assertResource($response, new CastMemberResource($this->castMember));
     }
 
     public function testDestroy()
