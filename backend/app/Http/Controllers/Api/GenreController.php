@@ -4,11 +4,11 @@ namespace App\Http\Controllers\Api;
 
 use App\Http\Resources\GenreResource;
 use App\Models\Genre;
+use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Http\Request;
 
 class GenreController extends BasicCrudController
 {
-    
     private $rules = [
         'name' => 'required|max:255',
         'is_active' => 'boolean',
@@ -25,7 +25,8 @@ class GenreController extends BasicCrudController
             return $obj;
         });
         $obj->refresh();
-        $resource = $this->resource();        
+        $resource = $this->resource();
+        $obj->load($this->queryBuilder()->getEagerLoads());
         return new $resource($obj);
     }
 
@@ -38,13 +39,14 @@ class GenreController extends BasicCrudController
             $obj->update($validatedData);
             $self->handleRelations($obj, $request);
         });
-        $resource = $this->resource();        
+        $resource = $this->resource();
+        $obj->load($this->queryBuilder()->getEagerLoads());
         return new $resource($obj);
     }
 
-    protected function handleRelations($video, Request $request)
+    protected function handleRelations($genre, Request $request)
     {
-        $video->categories()->sync($request->get('categories_id'));
+        $genre->categories()->sync($request->get('categories_id'));
     }
 
     protected function model()
@@ -70,5 +72,10 @@ class GenreController extends BasicCrudController
     protected function resourceCollection()
     {
         return $this->resource();
+    }
+
+    protected function queryBuilder(): Builder
+    {
+        return parent::queryBuilder()->with('categories');
     }
 }
