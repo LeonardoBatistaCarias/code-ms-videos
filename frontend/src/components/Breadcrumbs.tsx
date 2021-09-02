@@ -37,8 +37,7 @@ const LinkRouter = (props: LinkRouterProps) => <Link {...props} component={Route
 export default function Breadcrumbs() {
   const classes = useStyles();
 
-  function makeBreadcrumb(location: Location) {
-    {
+  function makeBreadcrumb(location: Location) {    
       const pathnames = location.pathname.split('/').filter((x) => x);
       pathnames.unshift('/');
       
@@ -64,8 +63,7 @@ export default function Breadcrumbs() {
             );
           })}
         </MuiBreadcrumbs>
-      );
-    }
+      );    
   }
 
   return (    
