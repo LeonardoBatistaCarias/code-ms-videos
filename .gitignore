@@ -1,2 +1,2 @@
-./docker/dbdata/
+.docker/dbdata/
 .npm-cache/
