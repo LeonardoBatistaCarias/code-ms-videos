@@ -4,16 +4,13 @@ import * as React from 'react';
 import { Link } from 'react-router-dom';
 import routes, {MyRouteProps} from '../../routes';
 
-const listRoutes = [
-    'dashboard',    
-    'categories.list',
-    'categories.create',
-    'cast_members.list',
-    'cast_members.create',
-    'genres.list',
-    'genres.create'
-];
-const menuRoutes = routes.filter(route => listRoutes.includes(route.name));
+const listRoutes = {
+    'dashboard': 'Dashboard',
+    'categories.list': 'Categorias',
+    'cast_members.list': 'Membros de elenco',
+    'genres.list': 'Gêneros',
+};
+const menuRoutes = routes.filter(route => Object.keys(listRoutes).includes(route.name));
 
 export const Menu = () => {
     
@@ -45,14 +42,14 @@ export const Menu = () => {
                 getContentAnchorEl={null}
             >
                 {
-                    listRoutes.map(
+                    Object.keys(listRoutes).map(
                         (routeName, key) => {
                             const route = menuRoutes.find(
                                 route => route.name === routeName
                             ) as MyRouteProps;                            
                             return (
                                 <MenuItem key={key} component={Link} to={route.path as string} onClick={handleClose}>
-                                    {route.label}
+                                    {listRoutes[routeName]}
                                 </MenuItem>
                             )           
                         }
