@@ -38,7 +38,7 @@ const theme = createTheme({
                 boxShadow: "none"
             }
         },
-        MUIDataTableTollbar: {
+        MUIDataTableToolbar: {
             root: {
                 minHeight: '58px',
                 backgroundColor: palette!.background!.default

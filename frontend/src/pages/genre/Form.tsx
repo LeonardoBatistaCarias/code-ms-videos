@@ -61,39 +61,46 @@ export const Form = () => {
     const [loading, setLoading] = useState<boolean>(false);    
 
     const buttonProps: ButtonProps = {
-    className: classes.submit,
-    color: "secondary",
-    variant: "contained",
+        className: classes.submit,
+        color: "secondary",
+        variant: "contained",
     };    
 
     useEffect(() => {
-    async function loadData() {
-        setLoading(true);
-        const promises = [categoryHttp.list()];
-        if (id) {
-            promises.push(genreHttp.get(id));
-        }
-        try {
-            const [categoriesResponse, genreResponse] = await Promise.all(promises);
-            setCategories(categoriesResponse.data.data);
+        let isSubscribed = true;
+        (async () => {
+            setLoading(true);
+            const promises = [categoryHttp.list({queryParams: {all: ''}})];
             if (id) {
-                setGenre(genreResponse.data.data);
-                reset({
-                    ...genreResponse.data.data,
-                    categories_id: genreResponse.data.data.categories.map(category => category.id)
-                });
-            }                
-        } catch (error) {
-            console.error(error);
-            snackbar.enqueueSnackbar(
-                'Não foi possível carregar as informações',
-                {variant: 'error',}
-            )
-        } finally {
-            setLoading(false);
+                promises.push(genreHttp.get(id));
+            }
+            try {
+                const [categoriesResponse, genreResponse] = await Promise.all(promises);
+                if(isSubscribed) {
+                    setCategories(categoriesResponse.data.data);
+                    if (id) {
+                        setGenre(genreResponse.data.data);
+                        const categories_id = genreResponse.data.data.categories.map(category => category.id);
+                        reset({
+                            ...genreResponse.data.data,
+                            categories_id
+                        });
+                    }
+                }
+            } catch (error) {
+                console.error(error);
+                snackbar.enqueueSnackbar(
+                    'Não foi possível carregar as informações',
+                    {variant: 'error',}
+                )
+            } finally {
+                setLoading(false);
+            }
+        })();
+
+        return () => {
+            isSubscribed = false;
         }
-    }
-        loadData();
     }, []);
 
     useEffect(() => {
