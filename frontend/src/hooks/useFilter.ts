@@ -1,19 +1,28 @@
 import { MUIDataTableColumn } from "mui-datatables";
 import { Dispatch, Reducer, useEffect, useReducer, useState } from "react";
-import reducer, { Creators, INITIAL_STATE } from "../store/filter";
+import reducer, { Creators } from "../store/filter";
 import { Actions as FilterActions, State as FilterState } from "../store/filter/types";
 import { useDebounce } from "use-debounce";
 import { useHistory } from "react-router";
 import { History } from 'history';
 import {isEqual} from 'lodash';
 import * as yup from '../util/vendor/yup';
+import { MuiDataTableRefComponent } from "../pages/category/Table";
 
 interface FilterManagerOptions {
     columns: MUIDataTableColumn[];
     rowsPerPage: number;
-    rowsPerPageOptions: number[];
+    rowsPerPageOptions: number[];    
     debounceTime: number;
     history: History;
+    tableRef: React.MutableRefObject<MuiDataTableRefComponent>;
+    extraFilter?: ExtraFilter
+}
+
+interface ExtraFilter {
+    getStateFromURL: (queryParams: URLSearchParams) => any,
+    formatSearchParams: (debouncedState: FilterState) => any,
+    createValidationSchema: () => any,
 }
 
 interface UseFilterOptions extends Omit<FilterManagerOptions, 'history'> {
@@ -58,13 +67,17 @@ export class FilterManager {
     rowsPerPage: number;
     rowsPerPageOptions: number[];    
     history: History;
+    tableRef: React.MutableRefObject<MuiDataTableRefComponent>;
+    extraFilter?: ExtraFilter;
 
     constructor(options: FilterManagerOptions) {
-        const { columns, rowsPerPage, rowsPerPageOptions, history } = options;
+        const { columns, rowsPerPage, rowsPerPageOptions, tableRef, history, extraFilter } = options;
         this.columns = columns;
         this.rowsPerPage = rowsPerPage;
-        this.rowsPerPageOptions = rowsPerPageOptions;        
+        this.rowsPerPageOptions = rowsPerPageOptions;
+        this.tableRef = tableRef;
         this.history = history;
+        this.extraFilter = extraFilter;
         this.createValidationSchema();
     }
 
@@ -86,7 +99,25 @@ export class FilterManager {
             })
         );
     }
+
+    resetFilter() {
+        const INITIAL_STATE = {
+            ...this.schema.cast({}),
+            search: { value: null, update: true },
+        };
+        this.dispatch(
+            Creators.setReset({
+            state: INITIAL_STATE,
+            })
+        );
+        this.resetTablePagination();
+    }    
     
+    private resetTablePagination() {
+        this.tableRef.current.changeRowsPerPage(this.rowsPerPage);
+        this.tableRef.current.changePage(0);
+    }
+
     applyOrderInColumns() {
         this.columns = this.columns.map(column => {
             return column.name === this.state.order.sort
@@ -148,6 +179,9 @@ export class FilterManager {
                     sort: this.state.order.sort,
                     dir: this.state.order.dir
                 }
+            ),
+            ...(
+                this.extraFilter && this.extraFilter.formatSearchParams(this.state)
             )
 
         }
@@ -164,8 +198,13 @@ export class FilterManager {
             order: {
                 sort: queryParams.get('sort'),
                 dir: queryParams.get('dir')
-            }
-        })
+            },
+            ...(
+                this.extraFilter && {
+                    extraFilter: this.extraFilter.getStateFromURL(queryParams)
+                }
+            )
+        });
     }
 
     private createValidationSchema() {
@@ -196,7 +235,12 @@ export class FilterManager {
                     .nullable()
                     .transform(value => !value || !['asc', 'desc'].includes(value.toLowerCase()) ? undefined : value)
                     .default(null),
-            })
+            }),
+            ...(
+                this.extraFilter && {
+                    extraFilter: this.extraFilter.createValidationSchema()
+                }
+            )
         });
     }
 }

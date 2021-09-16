@@ -112,6 +112,7 @@ const Table: React.FC<TableProps> = (props) => {
     );    
  
     applyLoading();
+    applyResponsive();
     
     const originalProps = getOriginalMuiDataTableProps();
 

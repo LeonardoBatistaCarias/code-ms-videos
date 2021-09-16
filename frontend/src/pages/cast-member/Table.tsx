@@ -10,8 +10,11 @@ import { IconButton, MuiThemeProvider } from '@material-ui/core';
 import DefaultTable, {makeActionStyles, TableColumn} from '../../components/Table'
 import EditIcon from '@material-ui/icons/Edit';
 import { useSnackbar } from 'notistack';
+import { MuiDataTableRefComponent } from '../category/Table';
+import useFilter from '../../hooks/useFilter';
+import * as yup from '../../util/vendor/yup';
 
-const castMemberNames = CastMemberTypeMap;
+const castMemberNames = Object.values(CastMemberTypeMap);
 
 const columnsDefinition: TableColumn[] = [
     {
@@ -79,10 +82,59 @@ const columnsDefinition: TableColumn[] = [
 type Props = {};
 const Table = (props: Props) => {
 
+    const debounceTime = 300;
+    const debouncedSearchTime = 300;
+    const rowsPerPage = 15;
+    const rowsPerPageOptions = [15, 25, 50];
     const snackbar = useSnackbar();
     const [data, setData] = useState<CastMember[]>([]);
     const [loading, setLoading] = useState<boolean>(false);
-
+    const tableRef = React.useRef() as React.MutableRefObject<MuiDataTableRefComponent>;
+    
+    const {
+        columns,
+        filterManager,
+        filterState,
+        debouncedFilterState,
+        dispatch,
+        totalRecords,
+        setTotalRecords,
+    } = useFilter(
+        {
+            columns: columnsDefinition,
+            debounceTime: debounceTime,
+            rowsPerPage,
+            rowsPerPageOptions,
+            tableRef,
+            extraFilter: {
+                createValidationSchema: () => {
+                    return yup.object().shape({
+                        type: yup.string()
+                                .nullable()                                
+                                .transform(value => {
+                                    return !value || !castMemberNames.includes(value)? undefined: value;
+                                })
+                                .default(null)
+                    })
+                },
+                formatSearchParams: (debouncedState) => {
+                    return debouncedState.extraFilter 
+                        ? {
+                            ...(
+                                debouncedState.extraFilter.type &&
+                                {type: debouncedState.extraFilter.type}
+                            )
+                        } : undefined
+                },
+                getStateFromURL: (queryParams) => {
+                    return {
+                        type: queryParams.get('type')
+                    }
+                }
+            }
+        }
+    );
+    
     useEffect( () => {
         let isSubscribed = true;
         (async () => {
