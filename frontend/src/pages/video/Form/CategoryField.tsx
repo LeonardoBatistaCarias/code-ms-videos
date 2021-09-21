@@ -17,7 +17,7 @@ const useStyles = makeStyles((theme: Theme) => ({
     }
 }));
 
-interface CategoryFieldProps {
+interface CategoryFieldProps extends React.RefAttributes<CategoryFieldComponent> {
     categories: any[];
     setCategories: (categories) => void;
     genres: Genre[];
@@ -26,7 +26,11 @@ interface CategoryFieldProps {
     FormControlProps?: FormControlProps;
 }
 
-const CategoryField: React.FC<CategoryFieldProps> = (props) => {
+export interface CategoryFieldComponent{
+    clear: () => void
+}
+
+const CategoryField = React.forwardRef<CategoryFieldComponent, CategoryFieldProps>((props, ref) => {
     const {categories = [], setCategories, genres = [], error, disabled} = props;
     const classes = useStyles();
     const autocompleteHttp = useHttpHandled();
@@ -97,6 +101,6 @@ const CategoryField: React.FC<CategoryFieldProps> = (props) => {
             </FormControl>
         </>
     );
-};
+});
 
 export default CategoryField;

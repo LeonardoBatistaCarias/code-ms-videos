@@ -1,18 +1,20 @@
 import * as React from 'react';
-import { useEffect } from 'react';
-import { useState } from 'react';
+import {useContext, useEffect, useRef, useState} from "react";
 import format from "date-fns/format";
 import parseISO from "date-fns/parseISO";
-import categoryHttp from '../../util/http/category-http';
-import { Category, ListResponse } from '../../util/models';
-import { BadgeNo, BadgeYes } from '../../components/Badge';
-import DefaultTable, {makeActionStyles, TableColumn} from '../../components/Table'
-import { useSnackbar } from 'notistack';
-import { IconButton, MuiThemeProvider } from '@material-ui/core';
+import videoHttp from "../../util/http/video-http";
+import {Video, ListResponse} from "../../util/models";
+import DefaultTable, {makeActionStyles, TableColumn, MuiDataTableRefComponent} from '../../components/Table';
+import {useSnackbar} from "notistack";
+import {IconButton, MuiThemeProvider} from "@material-ui/core";
+import {Link} from "react-router-dom";
 import EditIcon from '@material-ui/icons/Edit';
-import { Link } from 'react-router-dom';
-import { FilterResetButton } from '../../components/Table/FilterResetButton';
-import useFilter from '../../hooks/useFilter';
+import {FilterResetButton} from "../../components/Table/FilterResetButton";
+import useFilter from "../../hooks/useFilter";
+import useDeleteCollection from '../../hooks/useDeleteCollection';
+import DeleteDialog from '../../components/DeleteDialog';
+import LoadingContext from '../../components/loading/LoadingContext';
+
 
 const columnsDefinition: TableColumn[] = [
     {
@@ -25,24 +27,34 @@ const columnsDefinition: TableColumn[] = [
         }
     },
     {
-        name: "name",
-        label: "Nome",
-        width: "43%",        
+        name: "title",
+        label: "Título",
+        width: '20%',
         options: {
-            filter: false,
+            filter: false
         }
     },
     {
-        name: "is_active",
-        label: "Ativo?",
-        width: '4%',
+        name: "genres",
+        label: "Gêneros",
+        width: '13%',
         options: {
-            filterList: ['Sim'],
-            filterOptions: {
-                names: ['Sim', 'Não']
-            },
-            customBodyRender(value, tableMeta, updateValue) {
-                return value ? <BadgeYes /> : <BadgeNo />;
+            sort: false,
+            filter: false,
+            customBodyRender: (value, tableMeta, updateValue) => {
+                return value.map(value => value.name).join(', ');
+            }
+        }
+    },
+    {
+        name: "categories",
+        label: "Categorias",
+        width: '12%',
+        options: {
+            sort: false,
+            filter: false,
+            customBodyRender: (value, tableMeta, updateValue) => {
+                return value.map(value => value.name).join(', ');
             }
         }
     },
@@ -50,7 +62,7 @@ const columnsDefinition: TableColumn[] = [
         name: "created_at",
         label: "Criado em",
         width: '10%',
-        options: {            
+        options: {
             filter: false,
             customBodyRender(value, tableMeta, updateValue) {
                 return <span>{format(parseISO(value), 'dd/MM/yyyy')}</span>
@@ -69,7 +81,7 @@ const columnsDefinition: TableColumn[] = [
                     <IconButton
                         color={'secondary'}
                         component={Link}
-                        to={`/categories/${tableMeta.rowData[0]}/edit`}
+                        to={`/videos/${tableMeta.rowData[0]}/edit`}
                     >
                         <EditIcon/>
                     </IconButton>
@@ -79,41 +91,36 @@ const columnsDefinition: TableColumn[] = [
     }
 ];
 
-export interface MuiDataTableRefComponent {
-    changePage: (page: number) => void;
-    changeRowsPerPage: (rowsPerPage: number) => void;
-}
-
+const debounceTime = 300;
+const debouncedSearchTime = 300;
+const rowsPerPage = 15;
+const rowsPerPageOptions = [15, 25, 50];
 const Table = () => {
-    const debounceTime = 300;
-    const debouncedSearchTime = 300;
-    const rowsPerPage = 15;
-    const rowsPerPageOptions = [15, 25, 50];
-    const tableRef = React.useRef() as React.MutableRefObject<MuiDataTableRefComponent>;
     const snackbar = useSnackbar();
-    const subscribed = React.useRef(true);
-    const [data, setData] = useState<Category[]>([]);
-    const [loading, setLoading] = useState<boolean>(false);
-    const { 
+    const subscribed = useRef(true);
+    const [data, setData] = useState<Video[]>([]);
+    const loading = useContext(LoadingContext);
+    const {openDeleteDialog, setOpenDeleteDialog, rowsToDelete, setRowsToDelete} = useDeleteCollection();
+    const tableRef = useRef() as React.MutableRefObject<MuiDataTableRefComponent>;
+    
+    const {
         columns,
         filterManager,
         filterState,
         debouncedFilterState,
-        dispatch,
         totalRecords,
-        setTotalRecords
+        setTotalRecords,
     } = useFilter({
         columns: columnsDefinition,
         debounceTime: debounceTime,
-        rowsPerPage: rowsPerPage,
-        rowsPerPageOptions: rowsPerPageOptions,
+        rowsPerPage,
+        rowsPerPageOptions,
         tableRef
-    });    
+    });
 
     useEffect(() => {
         subscribed.current = true;
-        filterManager.pushHistory();
-        getData()
+        getData();
         return () => {
             subscribed.current = false;
         }
@@ -125,64 +132,102 @@ const Table = () => {
     ]);
 
     async function getData() {
-        setLoading(true);
         try {
-            const { data } = await categoryHttp.list<ListResponse<Category>>({
+            const {data} = await videoHttp.list<ListResponse<Video>>({
                 queryParams: {
-                    search: filterManager.cleanSearchText(filterState.search),
-                    page: filterState.pagination.page,
-                    per_page: filterState.pagination.per_page,
-                    sort: filterState.order.sort,
-                    dir: filterState.order.dir,
+                    page: debouncedFilterState.pagination.page,
+                    per_page: debouncedFilterState.pagination.per_page,
+                    sort: debouncedFilterState.order.sort,
+                    dir: debouncedFilterState.order.dir,
                 }
             });
-            if(subscribed.current) {
+            if (subscribed.current) {
                 setData(data.data);
-                setTotalRecords(data.meta.total)
+                setTotalRecords(data.meta.total);
+                if(openDeleteDialog){
+                    setOpenDeleteDialog(false);
+                }
             }
         } catch (error) {
             console.error(error);
-            if(categoryHttp.isCancelledRequest(error)) {
+            if (videoHttp.isCancelledRequest(error)) {
                 return;
             }
             snackbar.enqueueSnackbar(
                 'Não foi possível carregar as informações',
-                {variant: 'error'}
+                {variant: 'error',}
             )
-        } finally {
-            setLoading(false);
         }
     }
 
+    function deleteRows(confirmed: boolean) {
+        // if (!confirmed) {
+        //     setOpenDeleteDialog(false);
+        //     return;
+        // }
+        // const ids = rowsToDelete
+        //     .data
+        //     .map(value => data[value.index].id)
+        //     .join(',');
+        // videoHttp
+        //     .deleteCollection({ids})
+        //     .then(response => {
+        //         snackbar.enqueueSnackbar(
+        //             'Registros excluídos com sucesso',
+        //             {variant: 'success'}
+        //         );
+        //         if(
+        //             rowsToDelete.data.length === filterState.pagination.per_page
+        //             && filterState.pagination.page > 1
+        //         ){
+        //             const page = filterState.pagination.page - 2;
+        //             filterManager.changePage(page);
+        //         }else{
+        //             getData();
+        //         }
+        //     })
+        //     .catch((error) => {
+        //         console.error(error);
+        //         snackbar.enqueueSnackbar(
+        //             'Não foi possível excluir os registros',
+        //             {variant: 'error',}
+        //         )
+        //     })
+    }
+
+
     return (
         <MuiThemeProvider theme={makeActionStyles(columnsDefinition.length - 1)}>
+            <DeleteDialog open={openDeleteDialog} handleClose={deleteRows}/>
             <DefaultTable
-                title="Listagem de categorias"
+                title="Listagem de vídeos"
                 columns={columns}
                 data={data}
                 loading={loading}
-                debounceSearchTime={debouncedSearchTime}
-                options={
-                    {
-                        serverSide: true,
-                        responsive: 'simple',
-                        searchText: filterState.search as any,
-                        page: filterState.pagination.page - 1,
-                        rowsPerPage: filterState.pagination.per_page,
-                        rowsPerPageOptions: rowsPerPageOptions,
-                        count: totalRecords,
-                        customToolbar: () => (
-                            <FilterResetButton
-                                handleClick={() => filterManager.resetFilter()}
-                            />
-                        ),
-                        onSearchChange: (value) => filterManager.changeSearch(value as string),
-                        onChangePage: (page) => filterManager.changePage(page),
-                        onChangeRowsPerPage: (perPage) => filterManager.changeRowsPerPage(perPage),
-                        onColumnSortChange: (changedColumn: string, direction: string) => 
-                            filterManager.changeColumnSort(changedColumn, direction),
-                    }
-                }                    
+                // debouncedSearchTime={debouncedSearchTime}
+                options={{
+                    serverSide: true,
+                    responsive: "simple",
+                    searchText: filterState.search as any,
+                    page: filterState.pagination.page - 1,
+                    rowsPerPage: filterState.pagination.per_page,
+                    rowsPerPageOptions,
+                    count: totalRecords,
+                    customToolbar: () => (
+                        <FilterResetButton
+                            handleClick={() => filterManager.resetFilter()}
+                        />
+                    ),
+                    onSearchChange: (value) => filterManager.changeSearch(value),
+                    onChangePage: (page) => filterManager.changePage(page),
+                    onChangeRowsPerPage: (perPage) => filterManager.changeRowsPerPage(perPage),
+                    onColumnSortChange: (changedColumn: string, direction: string) =>
+                        filterManager.changeColumnSort(changedColumn, direction),
+                    // onRowsDelete: (rowsDeleted: any[]) => {
+                    //     setRowsToDelete(rowsDeleted as any);
+                    //     return false;
+                    // },
+                }}
             />
         </MuiThemeProvider>
     );

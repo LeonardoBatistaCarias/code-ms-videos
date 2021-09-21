@@ -61,6 +61,11 @@ const makeDefaultOptions = (debounceSearchTime?): MUIDataTableOptions => ({
     }
 });
 
+export interface MuiDataTableRefComponent {
+    changePage: (page: number) => void;
+    changeRowsPerPage: (rowsPerPage: number) => void;
+}
+
 export interface TableProps extends MUIDataTableProps {
     columns: TableColumn[];
     loading?: boolean;

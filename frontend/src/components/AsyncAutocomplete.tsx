@@ -4,15 +4,20 @@ import { CircularProgress, TextField, TextFieldProps } from '@material-ui/core';
 import {useState, useEffect} from 'react';
 import { useSnackbar } from 'notistack';
 import { useDebounce } from 'use-debounce/lib';
+import {RefAttributes, forwardRef} from "react";
 
-interface AsyncAutocompleteProps {
+interface AsyncAutocompleteProps extends RefAttributes<AsyncAutocompleteComponent> {
     fetchOptions: (searchText) => Promise<any>;
     debounceTime?: number;
     TextFieldProps?: TextFieldProps;
     AutocompleteProps?: Omit<AutocompleteProps<any>, 'renderInput'> & UseAutocompleteSingleProps<any>;
 }
 
-const AsyncAutocomplete: React.FC<AsyncAutocompleteProps> = (props) => {
+export interface AsyncAutocompleteComponent {
+    clear: () => void;
+}
+
+const AsyncAutocomplete = forwardRef<AsyncAutocompleteComponent, AsyncAutocompleteProps> ((props, ref) => {
     
     const {AutocompleteProps, debounceTime = 300} = props;
     const {freeSolo = false, onOpen, onClose, onInputChange} = AutocompleteProps as any;
@@ -97,6 +102,6 @@ const AsyncAutocomplete: React.FC<AsyncAutocompleteProps> = (props) => {
     return (
         <Autocomplete {...autocompleteProps}/>
     );
-};
+});
 
 export default AsyncAutocomplete;

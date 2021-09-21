@@ -18,7 +18,11 @@ interface GenreFieldProps {
     FormControlProps?: FormControlProps;
 }
 
-const GenreField: React.FC<GenreFieldProps> = (props) => {
+export interface GenreFieldComponent {
+    clear: () => void
+}
+
+const GenreField = React.forwardRef<GenreFieldComponent, GenreFieldProps>((props, ref) => {
     const {
         genres = [],
         setGenres, 
@@ -94,6 +98,6 @@ const GenreField: React.FC<GenreFieldProps> = (props) => {
             </FormControl>
         </>
     );
-};
+});
 
 export default GenreField;
